@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Inicio | LabControl{% endblock %}
+{% block content %}
+<section class="intro">
+  <div><h2>Panel del laboratorio</h2><p>Inventario, fallas y mantenimiento en un solo lugar.</p></div>
+  <div class="network-note">Docentes: registren aquí las fallas que encuentren.</div>
+</section>
+
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+  {% for categoria, mensaje in mensajes %}<div class="flash {{ 'error' if categoria == 'error' else '' }}">{{ mensaje }}</div>{% endfor %}
+{% endwith %}
+
+<section class="stats" aria-label="Resumen">
+  <div class="stat"><span>Equipos registrados</span><strong>{{ total_equipos }}</strong></div>
+  <div class="stat"><span>Incidencias por atender</span><strong>{{ incidencias_pendientes }}</strong></div>
+  <div class="stat"><span>Requieren revisión de mantenimiento</span><strong>{{ equipos_atrasados|length }}</strong></div>
+</section>
+
+<div class="layout">
+  <div>
+    <section class="panel" id="equipos">
+      <div class="panel-head"><div><h3>Registrar equipo</h3><p>Función para el encargado del laboratorio.</p></div></div>
+      <form class="grid-form" action="{{ url_for('registrar_equipo') }}" method="post">
+        <div class="field"><label for="codigo">Código de inventario *</label><input id="codigo" name="codigo" placeholder="PC-001" required maxlength="30"></div>
+        <div class="field"><label for="nombre">Nombre del equipo *</label><input id="nombre" name="nombre" placeholder="Computadora Dell OptiPlex" required maxlength="100"></div>
+        <div class="field"><label for="estado">Estado *</label><select id="estado" name="estado" required><option value="">Selecciona...</option><option>Operativo</option><option>En reparación</option><option>Fuera de servicio</option></select></div>
+        <div class="field"><label for="ubicacion">Ubicación *</label><input id="ubicacion" name="ubicacion" placeholder="Mesa 4" required maxlength="80"></div>
+        <div class="field full"><label for="especificaciones">Especificaciones</label><textarea id="especificaciones" name="especificaciones" placeholder="Procesador, memoria, sistema operativo..." maxlength="500"></textarea></div>
+        <button type="submit">Guardar equipo</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>Inventario</h3><p>{{ equipos|length }} equipo(s) registrados.</p></div></div>
+      {% if equipos %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Código / equipo</th><th>Ubicación</th><th>Estado</th></tr></thead>
+        <tbody>{% for equipo in equipos %}
+          <tr><td><span class="code">{{ equipo.codigo }}</span><span class="subtext">{{ equipo.nombre }}</span></td><td>{{ equipo.ubicacion }}</td><td><span class="pill {% if equipo.estado == 'Operativo' %}green{% elif equipo.estado == 'En reparación' %}amber{% else %}red{% endif %}">{{ equipo.estado }}</span></td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      {% else %}<div class="empty">Aún no hay equipos. Registra el primero con el formulario.</div>{% endif %}
+    </section>
+
+    <section class="panel" id="reportes">
+      <div class="panel-head"><div><h3>Equipos con más fallas</h3><p>Conteo de incidencias registradas por equipo.</p></div></div>
+      {% if equipos_con_mas_fallas %}
+      <div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Incidencias</th></tr></thead><tbody>
+        {% for equipo in equipos_con_mas_fallas %}<tr><td><span class="code">{{ equipo.codigo }}</span><span class="subtext">{{ equipo.nombre }}</span></td><td><span class="pill amber">{{ equipo.total_fallas }}</span></td></tr>{% endfor %}
+      </tbody></table></div>
+      {% else %}<div class="empty">El reporte aparecerá cuando se registren incidencias.</div>{% endif %}
+    </section>
+  </div>
+
+  <div>
+    <section class="panel" id="incidencias">
+      <div class="panel-head"><div><h3>Reportar incidencia</h3><p>Formulario para docentes y encargado.</p></div></div>
+      {% if equipos %}
+      <form class="grid-form" action="{{ url_for('registrar_incidencia') }}" method="post">
+        <div class="field"><label for="inc-equipo">Equipo *</label><select id="inc-equipo" name="equipo_id" required><option value="">Selecciona...</option>{% for equipo in equipos %}<option value="{{ equipo.id }}">{{ equipo.codigo }} · {{ equipo.nombre }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="inc-fecha">Fecha *</label><input id="inc-fecha" type="date" name="fecha" value="{{ hoy }}" required></div>
+        <div class="field full"><label for="descripcion">Descripción de la falla *</label><textarea id="descripcion" name="descripcion" placeholder="Describe qué ocurre y cuándo sucede..." required maxlength="500"></textarea></div>
+        <button type="submit">Registrar incidencia</button>
+      </form>
+      {% else %}<div class="empty">Primero debe registrarse un equipo para asociarle una incidencia.</div>{% endif %}
+      <div style="height:16px"></div>
+      <div class="panel-head"><div><h3>Incidencias recientes</h3><p>Las nuevas incidencias quedan pendientes.</p></div></div>
+      {% if incidencias %}<div class="table-wrap"><table><thead><tr><th>Equipo / fecha</th><th>Falla / estado</th><th>Acción</th></tr></thead><tbody>
+        {% for incidencia in incidencias %}<tr><td><span class="code">{{ incidencia.equipo_codigo }}</span><span class="subtext">{{ incidencia.fecha }}</span></td><td>{{ incidencia.descripcion }}<span class="subtext"><span class="pill {% if incidencia.estado == 'Resuelta' %}green{% else %}amber{% endif %}">{{ incidencia.estado }}</span></span></td><td>{% if incidencia.estado != 'Resuelta' %}<form class="small-form" action="{{ url_for('resolver_incidencia', incidencia_id=incidencia.id) }}" method="post"><button type="submit">Resolver</button></form>{% else %}<span class="subtext">Completada</span>{% endif %}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="empty">No hay incidencias registradas.</div>{% endif %}
+    </section>
+
+    <section class="panel" id="mantenimientos">
+      <div class="panel-head"><div><h3>Registrar mantenimiento</h3><p>Guardar el historial preventivo o correctivo.</p></div></div>
+      {% if equipos %}
+      <form class="grid-form" action="{{ url_for('registrar_mantenimiento') }}" method="post">
+        <div class="field"><label for="mant-equipo">Equipo *</label><select id="mant-equipo" name="equipo_id" required><option value="">Selecciona...</option>{% for equipo in equipos %}<option value="{{ equipo.id }}">{{ equipo.codigo }} · {{ equipo.nombre }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="mant-fecha">Fecha *</label><input id="mant-fecha" type="date" name="fecha" value="{{ hoy }}" required></div>
+        <div class="field"><label for="tipo">Tipo *</label><select id="tipo" name="tipo" required><option value="">Selecciona...</option><option>Preventivo</option><option>Correctivo</option></select></div>
+        <div class="field"><label for="notas">Notas</label><input id="notas" name="notas" placeholder="Limpieza, cambio de pieza..." maxlength="300"></div>
+        <button type="submit">Guardar mantenimiento</button>
+      </form>
+      {% else %}<div class="empty">Primero debe registrarse un equipo.</div>{% endif %}
+      <div style="height:16px"></div>
+      <div class="panel-head"><div><h3>Historial reciente</h3></div></div>
+      {% if mantenimientos %}<div class="table-wrap"><table><thead><tr><th>Equipo / fecha</th><th>Tipo / notas</th></tr></thead><tbody>
+        {% for mantenimiento in mantenimientos %}<tr><td><span class="code">{{ mantenimiento.equipo_codigo }}</span><span class="subtext">{{ mantenimiento.fecha }}</span></td><td>{{ mantenimiento.tipo }}<span class="subtext">{{ mantenimiento.notas or 'Sin notas' }}</span></td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="empty">No hay mantenimientos registrados.</div>{% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>Alerta de mantenimiento</h3><p>Umbral del prototipo: más de {{ dias_alerta }} días desde el último registro.</p></div></div>
+      {% if equipos_atrasados %}<div class="alert-list">
+        {% for equipo in equipos_atrasados %}<div class="alert-item"><div><span class="code">{{ equipo.codigo }} · {{ equipo.nombre }}</span><span class="subtext">{{ equipo.ubicacion }}</span></div><span class="pill amber">{% if equipo.ultimo_mantenimiento %}Revisar{% else %}Sin historial{% endif %}</span></div>{% endfor %}
+      </div>{% else %}<div class="empty">Todos los equipos tienen mantenimiento registrado dentro del periodo.</div>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
