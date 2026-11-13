@@ -2,9 +2,8 @@
 
 ## Integrantes
 
-- [Nombre y apellido] - [Carnet]
-- [Nombre y apellido] - [Carnet]
-- [Agreguen o eliminen líneas según su grupo]
+- Fernando Vladimir Obispo Gomez - SMSS024225
+
 
 ## Descripción
 
